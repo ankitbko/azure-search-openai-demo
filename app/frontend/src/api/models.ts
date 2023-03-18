@@ -1,7 +1,8 @@
 export const enum Approaches {
     RetrieveThenRead = "rtr",
     ReadRetrieveRead = "rrr",
-    ReadDecomposeAsk = "rda"
+    ReadDecomposeAsk = "rda",
+    ChatVectorDbChain = "cvc"
 }
 
 export type AskRequestOverrides = {
@@ -25,7 +26,7 @@ export type AskRequest = {
 export type AskResponse = {
     answer: string;
     thoughts: string | null;
-    data_points: string[];
+    data_points: DataPoint[];
     error?: string;
 };
 
@@ -38,4 +39,10 @@ export type ChatRequest = {
     history: ChatTurn[];
     approach: Approaches;
     overrides?: AskRequestOverrides;
+    id: string;
+};
+
+export type DataPoint = {
+    source: string;
+    content: string;
 };

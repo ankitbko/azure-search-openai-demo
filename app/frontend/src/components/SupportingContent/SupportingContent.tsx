@@ -1,9 +1,10 @@
 import { parseSupportingContentItem } from "./SupportingContentParser";
 
 import styles from "./SupportingContent.module.css";
+import { DataPoint } from "../../api";
 
 interface Props {
-    supportingContent: string[];
+    supportingContent: DataPoint[];
 }
 
 export const SupportingContent = ({ supportingContent }: Props) => {

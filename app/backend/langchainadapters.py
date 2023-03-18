@@ -80,3 +80,13 @@ class HtmlCallbackHandler (BaseCallbackHandler):
     ) -> None:
         """Run on agent end."""
         self.html += f"<span style='color:{color}'>{ch(finish.log)}</span><br>"
+    
+    def on_agent_action(
+        self, action: AgentAction, color: Optional[str] = None, **kwargs: Any
+    ) -> Any:
+        """Run on agent action."""
+        self.html += f"<span style='color:{color}'>{ch(action.log)}</span><br>"
+    
+    def on_llm_new_token(self, token: str, **kwargs: Any) -> Any:
+        """Run on new LLM token. Only available when streaming is enabled."""
+        pass

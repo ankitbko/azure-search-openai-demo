@@ -23,6 +23,8 @@ param gptDeploymentName string = 'davinci'
 param gptModelName string = 'text-davinci-003'
 param chatGptDeploymentName string = 'chat'
 param chatGptModelName string = 'gpt-35-turbo'
+@secure()
+param openaiAPIKey string = ''
 
 @description('Id of the user or app to assign application roles')
 param principalId string = ''
@@ -75,6 +77,7 @@ module backend 'core/host/appservice.bicep' = {
       AZURE_SEARCH_SERVICE: searchServices.outputs.name
       AZURE_OPENAI_GPT_DEPLOYMENT: gptDeploymentName
       AZURE_OPENAI_CHATGPT_DEPLOYMENT: chatGptDeploymentName
+      OPENAI_API_KEY: openaiAPIKey
     }
   }
 }
@@ -241,6 +244,11 @@ module searchRoleBackend 'core/security/role.bicep' = {
   }
 }
 
+resource cognitiveService 'Microsoft.CognitiveServices/accounts@2022-12-01' existing = {
+  name: !empty(cognitiveServicesAccountName) ? cognitiveServicesAccountName : '${abbrs.cognitiveServicesAccounts}${resourceToken}'
+  scope: rg
+}
+
 output AZURE_LOCATION string = location
 output AZURE_OPENAI_SERVICE string = cognitiveServices.outputs.name
 output AZURE_SEARCH_INDEX string = searchIndexName
@@ -248,3 +256,4 @@ output AZURE_SEARCH_SERVICE string = searchServices.outputs.name
 output AZURE_STORAGE_ACCOUNT string = storage.outputs.name
 output AZURE_STORAGE_CONTAINER string = containerName
 output BACKEND_URI string = backend.outputs.uri
+output OPENAI_API_KEY string = cognitiveService.listKeys().key1

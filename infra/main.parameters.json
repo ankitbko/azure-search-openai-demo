@@ -19,6 +19,15 @@
     },
     "searchServicesSkuName": {
       "value": "standard"
+    },
+    "openaiAPIKey": {
+      "value": "${OPENAI_API_KEY}"
+    },
+    "chatGptDeploymentName": {
+      "value": "${AZURE_OPENAI_CHATGPT_DEPLOYMENT}"
+    },
+    "backendServiceName": {
+      "value": "${AZURE_BACKEND_SERVICE}"
     }
   }
 }

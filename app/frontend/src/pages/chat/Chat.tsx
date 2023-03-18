@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect } from "react";
 import { Checkbox, Panel, DefaultButton, TextField, SpinButton } from "@fluentui/react";
 import { SparkleFilled } from "@fluentui/react-icons";
+import { v4 as uuid4 } from "uuid";
 
 import styles from "./Chat.module.css";
 
@@ -34,6 +35,8 @@ const Chat = () => {
     const [selectedAnswer, setSelectedAnswer] = useState<number>(0);
     const [answers, setAnswers] = useState<[user: string, response: AskResponse][]>([]);
 
+    const [chatId, setChatId] = useState<string>(uuid4());
+
     const makeApiRequest = async (question: string) => {
         lastQuestionRef.current = question;
 
@@ -46,7 +49,7 @@ const Chat = () => {
             const history: ChatTurn[] = answers.map(a => ({ user: a[0], bot: a[1].answer }));
             const request: ChatRequest = {
                 history: [...history, { user: question, bot: undefined }],
-                approach: Approaches.ReadRetrieveRead,
+                approach: Approaches.ChatVectorDbChain,
                 overrides: {
                     promptTemplate: promptTemplate.length === 0 ? undefined : promptTemplate,
                     excludeCategory: excludeCategory.length === 0 ? undefined : excludeCategory,
@@ -54,7 +57,8 @@ const Chat = () => {
                     semanticRanker: useSemanticRanker,
                     semanticCaptions: useSemanticCaptions,
                     suggestFollowupQuestions: useSuggestFollowupQuestions
-                }
+                },
+                id: chatId
             };
             const result = await chatApi(request);
             setAnswers([...answers, [question, result]]);
@@ -71,6 +75,7 @@ const Chat = () => {
         setActiveCitation(undefined);
         setActiveAnalysisPanelTab(undefined);
         setAnswers([]);
+        setChatId(uuid4());
     };
 
     useEffect(() => chatMessageStreamEnd.current?.scrollIntoView({ behavior: "smooth" }), [isLoading]);
