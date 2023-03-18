@@ -67,7 +67,7 @@ export const Answer = ({
                         <span className={styles.citationLearnMore}>Citations:</span>
                         {parsedAnswer.citations.map((x, i) => {
                             return (
-                                <a key={i} href="{c}" target="_blank" rel="noopener noreferrer" className={styles.citation} title={x}>
+                                <a key={i} href={x} target="_blank" rel="noopener noreferrer" className={styles.citation} title={x}>
                                     {`${++i}. ${x}`}
                                 </a>
                             );
