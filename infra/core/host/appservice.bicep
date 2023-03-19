@@ -7,6 +7,8 @@ param applicationInsightsName string = ''
 param appServicePlanId string
 param keyVaultName string = ''
 param managedIdentity bool = !empty(keyVaultName)
+param containerRegistryName string = ''
+param containerName string = ''
 
 // Runtime Properties
 @allowed([
@@ -17,7 +19,7 @@ param runtimeNameAndVersion string = '${runtimeName}|${runtimeVersion}'
 param runtimeVersion string
 
 // Microsoft.Web/sites Properties
-param kind string = 'app,linux'
+param kind string = 'app,linux,container'
 
 // Microsoft.Web/sites/config
 param allowedOrigins array = []
@@ -27,7 +29,7 @@ param appSettings object = {}
 param clientAffinityEnabled bool = false
 param enableOryxBuild bool = contains(kind, 'linux')
 param functionAppScaleLimit int = -1
-param linuxFxVersion string = runtimeNameAndVersion
+param linuxFxVersion string = 'DOCKER|${containerRegistryName}.azurecr.io/${containerName}'
 param minimumElasticInstanceCount int = -1
 param numberOfWorkers int = -1
 param scmDoBuildDuringDeployment bool = false
@@ -55,6 +57,7 @@ resource appService 'Microsoft.Web/sites@2022-03-01' = {
       cors: {
         allowedOrigins: union([ 'https://portal.azure.com', 'https://ms.portal.azure.com' ], allowedOrigins)
       }
+      acrUseManagedIdentityCreds: true
     }
     clientAffinityEnabled: clientAffinityEnabled
     httpsOnly: true
@@ -65,10 +68,6 @@ resource appService 'Microsoft.Web/sites@2022-03-01' = {
   resource configAppSettings 'config' = {
     name: 'appsettings'
     properties: union(appSettings,
-      {
-        SCM_DO_BUILD_DURING_DEPLOYMENT: string(scmDoBuildDuringDeployment)
-        ENABLE_ORYX_BUILD: string(enableOryxBuild)
-      },
       !empty(applicationInsightsName) ? { APPLICATIONINSIGHTS_CONNECTION_STRING: applicationInsights.properties.ConnectionString } : {},
       !empty(keyVaultName) ? { AZURE_KEY_VAULT_ENDPOINT: keyVault.properties.vaultUri } : {})
   }

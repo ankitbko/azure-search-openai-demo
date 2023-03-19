@@ -28,6 +28,9 @@
     },
     "backendServiceName": {
       "value": "${AZURE_BACKEND_SERVICE}"
+    },
+    "backendContainerName": {
+      "value": "${AZURE_BACKEND_CONTAINER}"
     }
   }
 }

@@ -17,6 +17,7 @@ param backendServiceName string = ''
 param searchServicesName string = ''
 param searchServicesSkuName string = 'standard'
 param storageAccountName string = ''
+param containerRegistryName string = ''
 param containerName string = 'content'
 param searchIndexName string = 'gptkbindex'
 param gptDeploymentName string = 'davinci'
@@ -25,6 +26,7 @@ param chatGptDeploymentName string = 'chat'
 param chatGptModelName string = 'gpt-35-turbo'
 @secure()
 param openaiAPIKey string = ''
+param backendContainerName string = ''
 
 @description('Id of the user or app to assign application roles')
 param principalId string = ''
@@ -40,6 +42,16 @@ resource rg 'Microsoft.Resources/resourceGroups@2021-04-01' = {
   tags: tags
 }
 
+module containerRegistry 'core/host/containerregistry.bicep' = {
+  name: 'containerRegistry'
+  scope: rg
+  params: {
+    name: !empty(containerRegistryName) ? containerRegistryName : '${abbrs.containerRegistryRegistries}${resourceToken}'
+    location: location
+    tags: tags
+  }
+}
+
 // Create an App Service Plan to group applications under the same payment plan and SKU
 module appServicePlan 'core/host/appserviceplan.bicep' = {
   name: 'appserviceplan'
@@ -49,7 +61,7 @@ module appServicePlan 'core/host/appserviceplan.bicep' = {
     location: location
     tags: tags
     sku: {
-      name: 'B1'
+      name: 'S2'
       capacity: 1
     }
     kind: 'linux'
@@ -69,6 +81,8 @@ module backend 'core/host/appservice.bicep' = {
     runtimeVersion: '3.10'
     scmDoBuildDuringDeployment: true
     managedIdentity: true
+    containerRegistryName: containerRegistry.outputs.name
+    containerName: backendContainerName
     appSettings: {
       AZURE_BLOB_STORAGE_ACCOUNT: storage.outputs.name
       AZURE_BLOB_STORAGE_CONTAINER: containerName
@@ -244,6 +258,16 @@ module searchRoleBackend 'core/security/role.bicep' = {
   }
 }
 
+module registryRolePull 'core/security/role.bicep' = {
+  scope: rg
+  name: 'registry-role-pull'
+  params: {
+    principalId: backend.outputs.identityPrincipalId
+    roleDefinitionId: '7f951dda-4ed3-4680-a7ca-43fe172d538d'
+    principalType: 'ServicePrincipal'
+  }
+}
+
 resource cognitiveService 'Microsoft.CognitiveServices/accounts@2022-12-01' existing = {
   name: !empty(cognitiveServicesAccountName) ? cognitiveServicesAccountName : '${abbrs.cognitiveServicesAccounts}${resourceToken}'
   scope: rg
@@ -257,3 +281,5 @@ output AZURE_STORAGE_ACCOUNT string = storage.outputs.name
 output AZURE_STORAGE_CONTAINER string = containerName
 output BACKEND_URI string = backend.outputs.uri
 output OPENAI_API_KEY string = cognitiveService.listKeys().key1
+output AZURE_CONTAINER_REGISTRY_ENDPOINT string = containerRegistry.outputs.loginserver
+output AZURE_CONTAINER_REGISTRY_NAME string = containerRegistry.outputs.name
