@@ -49,10 +49,29 @@ os.environ["OPENAI_API_TYPE"] = "azure"
 os.environ["OPENAI_API_VERSION"] = "2022-12-01"
 os.environ["OPENAI_API_BASE"] = f"https://{AZURE_OPENAI_SERVICE}.openai.azure.com"
 
+# Set up clients for Cognitive Search and Storage
+search_client = SearchClient(
+    endpoint=f"https://{AZURE_SEARCH_SERVICE}.search.windows.net",
+    index_name=AZURE_SEARCH_INDEX,
+    credential=azure_credential)
+blob_client = BlobServiceClient(
+    account_url=f"https://{AZURE_BLOB_STORAGE_ACCOUNT}.blob.core.windows.net", 
+    credential=azure_credential)
+blob_container = blob_client.get_container_client(AZURE_BLOB_STORAGE_CONTAINER)
+
+# Various approaches to integrate GPT and external knowledge, most applications will use a single one of these patterns
+# or some derivative, here we include several for exploration purposes
+ask_approaches = {
+    "rtr": RetrieveThenReadApproach(search_client, AZURE_OPENAI_GPT_DEPLOYMENT, KB_FIELDS_SOURCEPAGE, KB_FIELDS_CONTENT),
+    "rrr": ReadRetrieveReadApproach(search_client, AZURE_OPENAI_GPT_DEPLOYMENT, KB_FIELDS_SOURCEPAGE, KB_FIELDS_CONTENT),
+    "rda": ReadDecomposeAsk(search_client, AZURE_OPENAI_GPT_DEPLOYMENT, KB_FIELDS_SOURCEPAGE, KB_FIELDS_CONTENT)
+}
+
 azurechatopenai = AzureChatOpenAI(temperature=0,verbose=True, deployment_name=AZURE_OPENAI_CHATGPT_DEPLOYMENT, max_tokens=1000)
 embeddings = OpenAIEmbeddings(chunk_size=1)
 index = Chroma(embedding_function=embeddings, collection_name="playbook", persist_directory="./data/playbook")
 chat_approaches = {
+    "rrr": ChatReadRetrieveReadApproach(search_client, AZURE_OPENAI_CHATGPT_DEPLOYMENT, AZURE_OPENAI_GPT_DEPLOYMENT, KB_FIELDS_SOURCEPAGE, KB_FIELDS_CONTENT),
     "cvc": ChatVectorDBChainApproach(llm=azurechatopenai, vectorstore=index)
 }
 memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
@@ -65,6 +84,31 @@ app = Flask(__name__)
 def static_file(path):
     return app.send_static_file(path)
 
+# Serve content files from blob storage from within the app to keep the example self-contained. 
+# *** NOTE *** this assumes that the content files are public, or at least that all users of the app
+# can access all the files. This is also slow and memory hungry.
+@app.route("/content/<path>")
+def content_file(path):
+    blob = blob_container.get_blob_client(path).download_blob()
+    mime_type = blob.properties["content_settings"]["content_type"]
+    if mime_type == "application/octet-stream":
+        mime_type = mimetypes.guess_type(path)[0] or "application/octet-stream"
+    return blob.readall(), 200, {"Content-Type": mime_type, "Content-Disposition": f"inline; filename={path}"}
+    
+@app.route("/ask", methods=["POST"])
+def ask():
+    ensure_openai_token()
+    approach = request.json["approach"]
+    try:
+        impl = ask_approaches.get(approach)
+        if not impl:
+            return jsonify({"error": "unknown approach"}), 400
+        r = impl.run(request.json["question"], request.json.get("overrides") or {})
+        return jsonify(r)
+    except Exception as e:
+        logging.exception("Exception in /ask")
+        return jsonify({"error": str(e)}), 500
+    
 @app.route("/chat", methods=["POST"])
 def chat():
     ensure_openai_token()
@@ -79,6 +123,12 @@ def chat():
     except Exception as e:
         logging.exception("Exception in /chat")
         return jsonify({"error": str(e)}), 500
+
+def ensure_openai_token():
+    global openai_token
+    # if openai_token.expires_on < int(time.time()) - 60:
+    #     openai_token = azure_credential.get_token("https://cognitiveservices.azure.com/.default")
+    #     openai.api_key = openai_token.token
 
 if __name__ == "__main__":
     app.run()
